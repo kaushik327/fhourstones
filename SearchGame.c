@@ -11,6 +11,7 @@
 // same rights and restrictions.
 
 #include "TransGame.c"
+#include <inttypes.h>
  
 #define BOOKPLY 0  // additional plies to be searched full-width
 #define REPORTPLY 2 // additional plies on which to report value
@@ -216,7 +217,7 @@ int main()
     for (work=0; (poscnt>>=1) != 0; work++) ; //work = log of #positions stored 
     printf("score = %d (%c)  work = %d\n",
       result, "#-<=>+"[result], work);
-    printf("%llu pos / %llu msec = %.1f Kpos/sec\n",
+    printf("%" PRIu64 " pos / %" PRIu64 " msec = %.1f Kpos/sec\n",
       nodes, msecs, (double)nodes/msecs);
     htstat();
   }
