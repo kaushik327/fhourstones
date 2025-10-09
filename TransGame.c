@@ -35,6 +35,12 @@
 #define WIN 5
 #define LOSSWIN 6
 
+char *score_to_string(int score)
+{
+  static char *score_strings[] = {"UNKNOWN", "LOSS", "DRAWLOSS", "DRAW", "DRAWWIN", "WIN", "LOSSWIN"};
+  return score_strings[score];
+}
+
 typedef struct {
 #if (LOCKSIZE<=32)
   unsigned biglock:LOCKSIZE;

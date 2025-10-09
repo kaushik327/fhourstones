@@ -215,8 +215,8 @@ int main()
     result = solve();   // expect score << 6 | work
     poscnt = posed;
     for (work=0; (poscnt>>=1) != 0; work++) ; //work = log of #positions stored 
-    printf("score = %d (%c)  work = %d\n",
-      result, "#-<=>+"[result], work);
+    printf("score = %s (%c)  work = %d\n",
+      score_to_string(result), "#-<=>+"[result], work);
     printf("%" PRIu64 " pos / %" PRIu64 " msec = %.1f Kpos/sec\n",
       nodes, msecs, (double)nodes/msecs);
     htstat();
