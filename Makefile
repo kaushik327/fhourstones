@@ -15,6 +15,9 @@ clean : ; rm -f SearchGame SearchGame.ghc *.class *.o *.hi *.tar.gz *.zip
 run : clean SearchGame inputs
 	./SearchGame < inputs
 
+test : clean SearchGame test-inputs
+	./test.sh
+
 SearchGame : $(CFILES)
 	$(CC) $(CFLAGS) -o $@ $<
 
