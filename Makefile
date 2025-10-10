@@ -19,11 +19,14 @@ clean : ; rm -f SearchGame SearchGameMT SearchGame.ghc SearchGameMT.ghc *.class 
 run : clean SearchGame inputs
 	./SearchGame < inputs
 
-run-mt : SearchGameMT inputs
+run-mt : clean SearchGameMT inputs
 	./SearchGameMT 4 < inputs
 
 test : clean SearchGame test-inputs
-	./test.sh
+	./test.sh ./SearchGame
+
+test-mt : clean SearchGameMT test-inputs
+	./test.sh ./SearchGameMT
 
 SearchGame : $(CFILES)
 	$(CC) $(CFLAGS) -o $@ $<
