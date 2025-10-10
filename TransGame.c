@@ -55,84 +55,91 @@ typedef struct {
   unsigned bigscore:3;
 } hashentry;
 
-unsigned int htindex, lock;
-hashentry *ht;
+// Transposition table state
+typedef struct {
+  unsigned int htindex, lock;
+  hashentry *ht;
   
-uint64 posed; // counts transtore calls
+  uint64 posed; // counts transtore calls
+} TransState;
   
-void trans_init()
+void trans_init(TransState *tstate)
 {
-  ht = (hashentry *)calloc(TRANSIZE, sizeof(hashentry));
-  if (!ht) {
+  tstate->ht = (hashentry *)calloc(TRANSIZE, sizeof(hashentry));
+  if (!tstate->ht) {
     printf("Failed to allocate %lu bytes\n", TRANSIZE*sizeof(hashentry));
     exit(0);
   }
+  // TODO(kaushik): not sure if necessary
+  tstate->htindex = 0;
+  tstate->lock = 0;
+  tstate->posed = 0;
 }
   
-void emptyTT()
+void emptyTT(TransState *tstate)
 {
   int i;
 
   for (i=0; i<TRANSIZE; i++) {
 #if (LOCKSIZE<=32)
-    ht[i].biglock = 0;
-    ht[i].bigwork = 0;
-    ht[i].newlock = 0;
+    tstate->ht[i].biglock = 0;
+    tstate->ht[i].bigwork = 0;
+    tstate->ht[i].newlock = 0;
 #else
-    ht[i].biglock = 0;
-    ht[i].bigwork = 0;
-    ht[i].newlock = 0;
+    tstate->ht[i].biglock = 0;
+    tstate->ht[i].bigwork = 0;
+    tstate->ht[i].newlock = 0;
 #endif
-    ht[i].newscore = 0;
-    ht[i].bigscore = 0;
+    tstate->ht[i].newscore = 0;
+    tstate->ht[i].bigscore = 0;
   }
-  posed = 0;
+  tstate->posed = 0;
 }
   
-void hash()
+void hash(GameState *state, TransState *tstate)
 {
-  bitboard htmp, htemp = positioncode();
-  if (nplies < SYMMREC) { // try symmetry recognition by reversing columns
+  bitboard htmp, htemp = positioncode(state);
+  if (state->nplies < SYMMREC) { // try symmetry recognition by reversing columns
     bitboard htemp2 = 0;
     for (htmp=htemp; htmp!=0; htmp>>=H1)
       htemp2 = htemp2<<H1 | (htmp & COL1);
     if (htemp2 < htemp)
       htemp = htemp2;
   }
-  lock = (unsigned int)(SIZE1>LOCKSIZE ? htemp >> (SIZE1-LOCKSIZE) : htemp);
-  htindex = (unsigned int)(htemp % TRANSIZE);
+  tstate->lock = (unsigned int)(SIZE1>LOCKSIZE ? htemp >> (SIZE1-LOCKSIZE) : htemp);
+  tstate->htindex = (unsigned int)(htemp % TRANSIZE);
 }
   
 // Compute hash and prefetch - call this early to hide memory latency
-void hash_and_prefetch()
+void hash_and_prefetch(GameState *state, TransState *tstate)
 {
-  hash();
+  hash(state, tstate);
   // Prefetch now, while caller does other work before calling transpose()
-  __builtin_prefetch(&ht[htindex], 0, 3);
+  __builtin_prefetch(&tstate->ht[tstate->htindex], 0, 3);
 }
 
-int transpose()
+int transpose(TransState *tstate)
 {
   hashentry he;
 
   // NOTE(kaushik): hash() already called by hash_and_prefetch() earlier
-  he = ht[htindex];
+  he = tstate->ht[tstate->htindex];
 
   // NOTE(kaushik): using branchless comparisons
-  int bigmatch = (he.biglock == lock);
-  int newmatch = (he.newlock == lock);
+  int bigmatch = (he.biglock == tstate->lock);
+  int newmatch = (he.newlock == tstate->lock);
   int result = UNKNOWN;
   result = newmatch ? he.newscore : result;
   result = bigmatch ? he.bigscore : result;
   return result;
 }
   
-void transtore(int x, unsigned int lock, int score, int work)
+void transtore(TransState *tstate, int x, unsigned int lock, int score, int work)
 {
   hashentry he;
 
-  posed++;
-  he = ht[x];
+  tstate->posed++;
+  he = tstate->ht[x];
   if (he.biglock == lock || work >= he.bigwork) {
     he.biglock = lock;
     he.bigscore = score;
@@ -141,10 +148,10 @@ void transtore(int x, unsigned int lock, int score, int work)
     he.newlock = lock;
     he.newscore = score;
   }
-  ht[x] = he;
+  tstate->ht[x] = he;
 }
 
-void htstat()      /* some statistics on hash table performance */
+void htstat(TransState *tstate)      /* some statistics on hash table performance */
 {
   int total, i;
   int typecnt[8];                /* bound type stats */
@@ -153,7 +160,7 @@ void htstat()      /* some statistics on hash table performance */
   for (i=0; i<8; i++)
     typecnt[i] = 0;
   for (i=0; i<TRANSIZE; i++) {
-    he = ht[i];
+    he = tstate->ht[i];
     if (he.biglock != 0)
       typecnt[he.bigscore]++;
     if (he.newlock != 0)

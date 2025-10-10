@@ -64,32 +64,34 @@
 #endif
 #define TOP (BOTTOM << HEIGHT)
 
-bitboard color[2];  // black and white bitboard
-int moves[SIZE],nplies;
-char height[WIDTH]; // holds bit index of lowest free square
-  
-void reset()
+typedef struct {
+  bitboard color[2];  // black and white bitboard
+  int moves[SIZE],nplies;
+  char height[WIDTH]; // holds bit index of lowest free square
+} GameState;
+
+void reset(GameState *state)
 {
   int i;
-  nplies = 0;
-  color[0] = color[1] = 0;
+  state->nplies = 0;
+  state->color[0] = state->color[1] = 0;
   for (i=0; i<WIDTH; i++)
-    height[i] = (char)(H1*i);
+    state->height[i] = (char)(H1*i);
 }
 
-bitboard positioncode()
+bitboard positioncode(GameState *state)
 {
-  return color[nplies&1] + color[0] + color[1] + BOTTOM;
+  return state->color[state->nplies&1] + state->color[0] + state->color[1] + BOTTOM;
 // color[0] + color[1] + BOTTOM forms bitmap of heights
 // so that positioncode() is a complete board encoding
 }
 
-void printMoves()
+void printMoves(GameState *state)
 {
   int i;
  
-  for (i=0; i<nplies; i++)
-    printf("%d", 1+moves[i]);
+  for (i=0; i<state->nplies; i++)
+    printf("%d", 1+state->moves[i]);
 }
 
 // return whether newboard lacks overflowing column
@@ -99,9 +101,9 @@ int islegal(bitboard newboard)
 }
 
 // return whether columns col has room
-int isplayable(int col)
+int isplayable(GameState *state, int col)
 {
-  return islegal(color[nplies&1] | ((bitboard)1 << height[col]));
+  return islegal(state->color[state->nplies&1] | ((bitboard)1 << state->height[col]));
 }
 
 // return non-zero iff newboard includes a win
@@ -123,16 +125,16 @@ int islegalhaswon(bitboard newboard)
   return islegal(newboard) && haswon(newboard);
 }
 
-void backmove()
+void backmove(GameState *state)
 {
   int n;
 
-  n = moves[--nplies];
-  color[nplies&1] ^= (bitboard)1<<--height[n];
+  n = state->moves[--state->nplies];
+  state->color[state->nplies&1] ^= (bitboard)1<<--state->height[n];
 }
 
-void makemove(int n) 
+void makemove(GameState *state, int n) 
 {
-  color[nplies&1] ^= (bitboard)1<<height[n]++;
-  moves[nplies++] = n;
+  state->color[state->nplies&1] ^= (bitboard)1<<state->height[n]++;
+  state->moves[state->nplies++] = n;
 }
