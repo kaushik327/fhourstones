@@ -35,6 +35,12 @@
 #define WIN 5
 #define LOSSWIN 6
 
+char *score_to_string(int score)
+{
+  static char *score_strings[] = {"UNKNOWN", "LOSS", "DRAWLOSS", "DRAW", "DRAWWIN", "WIN", "LOSSWIN"};
+  return score_strings[score];
+}
+
 typedef struct {
 #if (LOCKSIZE<=32)
   unsigned biglock:LOCKSIZE;
@@ -97,17 +103,28 @@ void hash()
   htindex = (unsigned int)(htemp % TRANSIZE);
 }
   
+// Compute hash and prefetch - call this early to hide memory latency
+void hash_and_prefetch()
+{
+  hash();
+  // Prefetch now, while caller does other work before calling transpose()
+  __builtin_prefetch(&ht[htindex], 0, 3);
+}
+
 int transpose()
 {
   hashentry he;
 
-  hash();
+  // NOTE(kaushik): hash() already called by hash_and_prefetch() earlier
   he = ht[htindex];
-  if (he.biglock == lock)
-    return he.bigscore;
-  if (he.newlock == lock)
-    return he.newscore;
-  return UNKNOWN;
+
+  // NOTE(kaushik): using branchless comparisons
+  int bigmatch = (he.biglock == lock);
+  int newmatch = (he.newlock == lock);
+  int result = UNKNOWN;
+  result = newmatch ? he.newscore : result;
+  result = bigmatch ? he.bigscore : result;
+  return result;
 }
   
 void transtore(int x, unsigned int lock, int score, int work)

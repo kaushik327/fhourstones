@@ -16,11 +16,14 @@ all : SearchGame SearchGameMT
 
 clean : ; rm -f SearchGame SearchGameMT SearchGame.ghc SearchGameMT.ghc *.class *.o *.hi *.tar.gz *.zip
 
-run : SearchGame inputs
+run : clean SearchGame inputs
 	./SearchGame < inputs
 
 run-mt : SearchGameMT inputs
 	./SearchGameMT 4 < inputs
+
+test : clean SearchGame test-inputs
+	./test.sh
 
 SearchGame : $(CFILES)
 	$(CC) $(CFLAGS) -o $@ $<

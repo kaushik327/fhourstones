@@ -99,6 +99,10 @@ int ab(int alpha, int beta)
     return LOSS;
   if (nplies == SIZE-2) // two moves left
     return DRAW; // opponent has no win either
+
+  // Prefetch hash table entry early to hide memory latency
+  hash_and_prefetch();
+
   if (nav == 1) {
     makemove(av[0]);
     score = LOSSWIN-ab(LOSSWIN-beta,LOSSWIN-alpha);
@@ -120,6 +124,10 @@ int ab(int alpha, int beta)
   poscnt = posed;
   besti=0;
   score = LOSS;
+
+  // NOTE(kaushik): prefetch hash table entry for transtore() at the end
+  __builtin_prefetch(&ht[hashindx], 1, 2);
+
   for (i = 0; i < nav; i++) {
     val = history[side][(int)height[av[l = i]]];
     for (j = i+1; j < nav; j++) {
@@ -215,8 +223,8 @@ int main()
     result = solve();   // expect score << 6 | work
     poscnt = posed;
     for (work=0; (poscnt>>=1) != 0; work++) ; //work = log of #positions stored 
-    printf("score = %d (%c)  work = %d\n",
-      result, "#-<=>+"[result], work);
+    printf("score = %s (%c)  work = %d\n",
+      score_to_string(result), "#-<=>+"[result], work);
     printf("%" PRIu64 " pos / %" PRIu64 " msec = %.1f Kpos/sec\n",
       nodes, msecs, (double)nodes/msecs);
     htstat();
