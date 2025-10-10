@@ -1,6 +1,7 @@
 # GNU Makefile
 
 CFLAGS = -O3 -march=native -flto -funroll-loops -fno-stack-protector -ffast-math -Wextra -Wall
+CFLAGS += -fopenmp
 CFILES = SearchGame.c TransGame.c Game.c
 JAVAFILES = SearchGame.java Connect4.java Game.java TransGame.java
 HASKELLFILES = Main.hs Connect4.hs GameTreeSearch.hs

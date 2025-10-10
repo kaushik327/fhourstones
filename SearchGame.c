@@ -12,6 +12,7 @@
 
 #include "TransGame.c"
 #include <inttypes.h>
+#include <omp.h>
  
 #define BOOKPLY 0  // additional plies to be searched full-width
 #define REPORTPLY 2 // additional plies on which to report value
@@ -138,30 +139,48 @@ int ab(SolverState *state, int alpha, int beta)
   // NOTE(kaushik): prefetch hash table entry for transtore() at the end
   __builtin_prefetch(&state->trans.ht[hashindx], 1, 2);
 
-  for (i = 0; i < nav; i++) {
-    val = state->search.history[side][(int)state->game.height[av[l = i]]];
-    for (j = i+1; j < nav; j++) {
-      v = state->search.history[side][(int)state->game.height[av[j]]];
-      if (v > val) {
-        val = v; l = j;
+  // Parallelize at a particular depth
+  if (state->game.nplies == state->search.reportply) {
+    printf("Parallelizing with %d threads at depth %d\n", nav, state->game.nplies);
+    int move_scores[nav];
+    // TODO(kaushik): this breaks the runtime/position count logs
+    #pragma omp parallel for schedule(guided)
+    for (i = 0; i < nav; i++) {
+      SolverState local_state = *state;
+      makemove(&local_state.game, av[i]);
+      move_scores[i] = LOSSWIN-ab(&local_state, LOSSWIN-beta,LOSSWIN-alpha);
+    }
+    for (i = 0; i < nav; i++) {
+      if (move_scores[i] > score) {
+        score = move_scores[i];
       }
     }
-    for (j = av[l]; l>i; l--)
-      av[l] = av[l-1];
-    makemove(&state->game, av[i] = j);
-    val = LOSSWIN-ab(state, LOSSWIN-beta,LOSSWIN-alpha);
-    backmove(&state->game);
-    if (val > score) {
-      besti = i;
-      if ((score=val) > alpha && state->game.nplies >= state->search.bookply && (alpha=val) >= beta) {
-        if (score == DRAW && i < nav-1)
-          score = DRAWWIN;
-        if (besti > 0) {
-          for (i = 0; i < besti; i++)
-            state->search.history[side][(int)state->game.height[av[i]]]--; // punish bad histories
-          state->search.history[side][(int)state->game.height[av[besti]]] += besti;
+  } else {
+    for (i = 0; i < nav; i++) {
+      val = state->search.history[side][(int)state->game.height[av[l = i]]];
+      for (j = i+1; j < nav; j++) {
+        v = state->search.history[side][(int)state->game.height[av[j]]];
+        if (v > val) {
+          val = v; l = j;
         }
-        break;
+      }
+      for (j = av[l]; l>i; l--)
+        av[l] = av[l-1];
+      makemove(&state->game, av[i] = j);
+      val = LOSSWIN-ab(state, LOSSWIN-beta,LOSSWIN-alpha);
+      backmove(&state->game);
+      if (val > score) {
+        besti = i;
+        if ((score=val) > alpha && state->game.nplies >= state->search.bookply && (alpha=val) >= beta) {
+          if (score == DRAW && i < nav-1)
+            score = DRAWWIN;
+          if (besti > 0) {
+            for (i = 0; i < besti; i++)
+              state->search.history[side][(int)state->game.height[av[i]]]--; // punish bad histories
+            state->search.history[side][(int)state->game.height[av[besti]]] += besti;
+          }
+          break;
+        }
       }
     }
   }
