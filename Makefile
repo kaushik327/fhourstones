@@ -12,7 +12,7 @@ all : SearchGame
 
 clean : ; rm -f SearchGame SearchGame.ghc *.class *.o *.hi *.tar.gz *.zip
 
-run : SearchGame inputs
+run : clean SearchGame inputs
 	./SearchGame < inputs
 
 SearchGame : $(CFILES)
